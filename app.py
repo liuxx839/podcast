@@ -60,42 +60,41 @@ def extract_text_from_file(uploaded_file):
         return uploaded_file.read().decode("utf-8")
     elif uploaded_file.name.endswith(".pdf"):
         try:
-            text = ""
-            # 创建临时文件来保存上传的PDF
+            # 创建临时文件以处理PDF
             with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
-                temp_file.write(uploaded_file.getbuffer())
+                temp_file.write(uploaded_file.getvalue())
                 temp_file_path = temp_file.name
             
-            # 使用PyPDF2读取临时文件
-            pdf_reader = PyPDF2.PdfReader(temp_file_path)
-            for page_num in range(len(pdf_reader.pages)):
-                page = pdf_reader.pages[page_num]
-                try:
-                    page_text = page.extract_text()
-                    if page_text:  # 确保提取的文本不为空
-                        text += page_text + "\n"
-                except Exception as e:
-                    st.warning(f"无法提取PDF第{page_num+1}页文本: {e}")
+            # 打开临时文件而不是直接使用stream
+            text = ""
+            with open(temp_file_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page_num in range(len(pdf_reader.pages)):
+                    page = pdf_reader.pages[page_num]
+                    text += page.extract_text()
             
             # 清理临时文件
             os.unlink(temp_file_path)
-            
-            # 如果没有提取到任何文本，返回错误
-            if not text.strip():
-                st.error("无法从PDF中提取有效文本。文件可能是扫描件或受保护。")
-                return None
-                
-            # 清理文本，移除可能导致问题的字符
-            text = ''.join(char for char in text if ord(char) < 65536)
             return text
-            
         except Exception as e:
-            st.error(f"处理PDF文件时出错: {e}")
+            st.error(f"PDF处理错误: {e}")
             return None
     elif uploaded_file.name.endswith(".docx"):
-        doc = docx.Document(uploaded_file)
-        text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
-        return text
+        try:
+            # 为docx文件创建临时文件
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as temp_file:
+                temp_file.write(uploaded_file.getvalue())
+                temp_file_path = temp_file.name
+            
+            doc = docx.Document(temp_file_path)
+            text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+            
+            # 清理临时文件
+            os.unlink(temp_file_path)
+            return text
+        except Exception as e:
+            st.error(f"DOCX处理错误: {e}")
+            return None
     else:
         st.error("不支持的文件类型。请上传 .txt, .pdf 或 .docx 文件")
         return None
