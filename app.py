@@ -56,21 +56,36 @@ if 'character_recommendations' not in st.session_state:
 # --- Helper Functions ---
 def extract_text_from_file(uploaded_file):
     """Extract text from uploaded file (.txt, .pdf, .docx)."""
-    if uploaded_file.name.endswith(".txt"):
-        return uploaded_file.read().decode("utf-8")
-    elif uploaded_file.name.endswith(".pdf"):
-        text = ""
-        pdf_reader = PyPDF2.PdfReader(uploaded_file)
-        for page_num in range(len(pdf_reader.pages)):
-            page = pdf_reader.pages[page_num]
-            text += page.extract_text()
-        return text
-    elif uploaded_file.name.endswith(".docx"):
-        doc = docx.Document(uploaded_file)
-        text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
-        return text
-    else:
-        st.error("不支持的文件类型。请上传 .txt, .pdf 或 .docx 文件")
+    try:
+        if uploaded_file.name.endswith(".txt"):
+            # Try reading with UTF-8 first
+            try:
+                return uploaded_file.read().decode("utf-8")
+            except UnicodeDecodeError:
+                # Fallback to GBK (common for Chinese text) or other encodings
+                uploaded_file.seek(0)  # Reset file pointer
+                try:
+                    return uploaded_file.read().decode("gbk")
+                except UnicodeDecodeError:
+                    # Fallback to latin1 as a last resort
+                    uploaded_file.seek(0)
+                    return uploaded_file.read().decode("latin1", errors="replace")
+        elif uploaded_file.name.endswith(".pdf"):
+            text = ""
+            pdf_reader = PyPDF2.PdfReader(uploaded_file)
+            for page_num in range(len(pdf_reader.pages)):
+                page = pdf_reader.pages[page_num]
+                text += page.extract_text() or ""  # Handle None returns
+            return text
+        elif uploaded_file.name.endswith(".docx"):
+            doc = docx.Document(uploaded_file)
+            text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+            return text
+        else:
+            st.error("不支持的文件类型。请上传 .txt, .pdf 或 .docx 文件")
+            return None
+    except Exception as e:
+        st.error(f"提取文件内容时出错：{str(e)}")
         return None
 
 def generate_dialogue_openai(content, char1_name, char2_name, dialogue_style, model="gemini-2.0-flash"):
