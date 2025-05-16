@@ -59,22 +59,21 @@ if 'character_recommendations' not in st.session_state:
 def sanitize_filename(filename):
     """
     Sanitize a filename to prevent encoding issues:
-    1. Normalize Unicode characters
-    2. Replace spaces with underscores
-    3. Remove characters that might cause issues
-    4. Ensure the filename has a valid extension
+    1. Use a generic base name 'test'
+    2. Preserve the original file extension
     """
-    # Normalize unicode characters
-    clean_name = unicodedata.normalize('NFKD', filename)
-    # Replace spaces and remove problematic characters
-    clean_name = re.sub(r'[^\w\s.-]', '', clean_name).replace(' ', '_')
-    
-    # Ensure we keep the original extension
+    # Extract the original extension
     original_ext = os.path.splitext(filename)[1].lower()
-    if original_ext in ['.txt', '.pdf', '.docx']:
-        # Make sure the extension is preserved correctly
-        base = os.path.splitext(clean_name)[0]
-        clean_name = f"{base}{original_ext}"
+    
+    # Define supported extensions
+    valid_extensions = ['.txt', '.pdf', '.docx']
+    
+    # If the extension is valid, use 'test' as the base name
+    if original_ext in valid_extensions:
+        clean_name = f"test{original_ext}"
+    else:
+        # Fallback to a default extension if unsupported
+        clean_name = "test.txt"
         
     return clean_name
 
