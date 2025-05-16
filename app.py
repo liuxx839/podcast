@@ -104,18 +104,27 @@ def extract_text_from_file(uploaded_file):
             pdf_reader = PyPDF2.PdfReader(temp_filepath)
             for page_num in range(len(pdf_reader.pages)):
                 page = pdf_reader.pages[page_num]
-                text += page.extract_text()
+                page_text = page.extract_text() or ""
+                text += page_text
         elif file_extension == '.docx':
             doc = docx.Document(temp_filepath)
             text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
             
         # Clean up the temporary file
         os.unlink(temp_filepath)
+        
+        # Log extracted text for debugging
+        st.write(f"提取的文本 (前100字符): {text[:100]}...")
+        
+        # Check if text is empty or invalid
+        if not text.strip():
+            st.error("从文件中提取的文本为空或无效。")
+            return None
+            
         return text
     except Exception as e:
         st.error(f"处理文件时出错：{e}")
         return None
-
 
 def generate_dialogue_openai(content, char1_name, char2_name, dialogue_style, model="gemini-2.0-flash"):
     """Generate dialogue using OpenAI API."""
