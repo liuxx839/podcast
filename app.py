@@ -54,6 +54,28 @@ if 'character_recommendations' not in st.session_state:
     st.session_state.character_recommendations = None
 
 # --- Helper Functions ---
+def rename_uploaded_file(uploaded_file):
+    """Rename the uploaded file to test.xxx, where xxx is the original extension, and return a file object."""
+    if not uploaded_file:
+        return None
+    
+    # Get the original file extension
+    _, ext = os.path.splitext(uploaded_file.name)
+    if ext.lower() not in ['.txt', '.pdf', '.docx']:
+        st.error("不支持的文件类型。请上传 .txt, .pdf 或 .docx 文件")
+        return None
+    
+    # Create a temporary file with name test.xxx
+    temp_dir = tempfile.mkdtemp()
+    temp_file_path = os.path.join(temp_dir, f"test{ext}")
+    
+    # Write the uploaded file content to the new file
+    with open(temp_file_path, "wb") as f:
+        f.write(uploaded_file.read())
+    
+    # Return a file object for the renamed file
+    return open(temp_file_path, "rb")
+
 def extract_text_from_file(uploaded_file):
     """Extract text from uploaded file (.txt, .pdf, .docx)."""
     try:
@@ -62,8 +84,8 @@ def extract_text_from_file(uploaded_file):
             try:
                 return uploaded_file.read().decode("utf-8")
             except UnicodeDecodeError:
-                # Fallback to GBK (common for Chinese text) or other encodings
-                uploaded_file.seek(0)  # Reset file pointer
+                # Fallback to GBK (common for Chinese text)
+                uploaded_file.seek(0)
                 try:
                     return uploaded_file.read().decode("gbk")
                 except UnicodeDecodeError:
@@ -75,7 +97,7 @@ def extract_text_from_file(uploaded_file):
             pdf_reader = PyPDF2.PdfReader(uploaded_file)
             for page_num in range(len(pdf_reader.pages)):
                 page = pdf_reader.pages[page_num]
-                text += page.extract_text() or ""  # Handle None returns
+                text += page.extract_text() or ""
             return text
         elif uploaded_file.name.endswith(".docx"):
             doc = docx.Document(uploaded_file)
@@ -210,6 +232,8 @@ def recommend_characters_and_voices(content):
 
 def text_to_speech_minimax(text_to_speak, voice_id):
     """Generate speech using Minimax API and return audio content."""
+    # Sanitize text to ensure UTF-8 compatibility
+    text_to_speak = text_to_speak.encode("utf-8").decode("utf-8", errors="ignore")
     url = MINIMAX_API_URL_TEMPLATE.format(group_id=MINIMAX_GROUP_ID)
     headers = {
         "Authorization": f"Bearer {MINIMAX_API_KEY}",
@@ -355,13 +379,22 @@ with st.sidebar:
 # 1. Display extracted content if file uploaded
 if uploaded_file:
     with st.spinner("正在从文件中提取文本..."):
-        content = extract_text_from_file(uploaded_file)
-        if content:
-            st.session_state.extracted_content = content
-            st.subheader("📄 提取的内容")
-            st.text_area("提取的文本", content, height=200, disabled=True)
+        # Rename the uploaded file to test.xxx
+        renamed_file = rename_uploaded_file(uploaded_file)
+        if renamed_file:
+            try:
+                content = extract_text_from_file(renamed_file)
+                if content:
+                    st.session_state.extracted_content = content
+                    st.subheader("📄 提取的内容")
+                    st.text_area("提取的文本", content, height=200, disabled=True)
+                else:
+                    st.error("无法从上传的文件中提取内容。")
+                    st.stop()
+            finally:
+                renamed_file.close()  # Ensure the file is closed
         else:
-            st.error("无法从上传的文件中提取内容。")
+            st.error("无法处理上传的文件。")
             st.stop()
 elif raw_text_input:
     st.session_state.extracted_content = raw_text_input
@@ -458,7 +491,7 @@ if st.session_state.dialogue_script:
                         st.error("未生成任何音频文件，无法创建播客。")
                         st.stop()
                     elif generation_errors:
-                        st.warning("部分音频生成失败，将使用已生成的音频继续。")
+                        st.warning("部分音频生成失败，将使用已生成的 regularyudio继续。")
 
                     if individual_audio_files:
                         final_podcast_path = os.path.join(temp_dir, "final_podcast.mp3")
