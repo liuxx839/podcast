@@ -9,9 +9,9 @@ import docx
 import PyPDF2
 
 # --- Configuration & Constants ---
-OPENAI_API_KEY = .
-MINIMAX_GROUP_ID = .
-MINIMAX_API_KEY = .
+OPENAI_API_KEY = os.getenv("GEMINI_API_KEY")
+MINIMAX_GROUP_ID = os.getenv("MINIMAX_GROUP_ID")
+MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY")
 
 VOICE_OPTIONS = {
     "青涩青年音色": "male-qn-qingse", "精英青年音色": "male-qn-jingying", "霸道青年音色": "male-qn-badao",
