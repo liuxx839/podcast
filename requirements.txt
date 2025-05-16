@@ -1,0 +1,6 @@
+streamlit 
+requests 
+pydub 
+openai 
+python-docx 
+PyPDF2
