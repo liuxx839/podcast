@@ -55,48 +55,34 @@ if 'character_recommendations' not in st.session_state:
 
 # --- Helper Functions ---
 def extract_text_from_file(uploaded_file):
-    """Extract text from uploaded file (.txt, .pdf, .docx)."""
-    if uploaded_file.name.endswith(".txt"):
-        return uploaded_file.read().decode("utf-8")
-    elif uploaded_file.name.endswith(".pdf"):
-        try:
-            # 创建临时文件以处理PDF
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
-                temp_file.write(uploaded_file.getvalue())
-                temp_file_path = temp_file.name
-            
-            # 打开临时文件而不是直接使用stream
-            text = ""
-            with open(temp_file_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
+    try:
+        if uploaded_file.name.endswith(".txt"):
+            return uploaded_file.read().decode("utf-8")
+        elif uploaded_file.name.endswith(".pdf"):
+            try:
+                uploaded_file.seek(0)  # 重置文件指针
+                pdf_reader = PyPDF2.PdfReader(uploaded_file)
+                text = ""
                 for page_num in range(len(pdf_reader.pages)):
                     page = pdf_reader.pages[page_num]
-                    text += page.extract_text()
-            
-            # 清理临时文件
-            os.unlink(temp_file_path)
-            return text
-        except Exception as e:
-            st.error(f"PDF处理错误: {e}")
-            return None
-    elif uploaded_file.name.endswith(".docx"):
-        try:
-            # 为docx文件创建临时文件
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as temp_file:
-                temp_file.write(uploaded_file.getvalue())
-                temp_file_path = temp_file.name
-            
-            doc = docx.Document(temp_file_path)
+                    extracted = page.extract_text()
+                    if extracted:
+                        text += extracted
+                if not text:
+                    st.warning("PDF 文件未提取到任何文本，可能为扫描件或无文本内容。")
+                return text if text else None
+            except Exception as e:
+                st.error(f"PyPDF2 解析 PDF 失败：{str(e)}")
+                return None
+        elif uploaded_file.name.endswith(".docx"):
+            doc = docx.Document(uploaded_file)
             text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
-            
-            # 清理临时文件
-            os.unlink(temp_file_path)
             return text
-        except Exception as e:
-            st.error(f"DOCX处理错误: {e}")
+        else:
+            st.error("不支持的文件类型。请上传 .txt, .pdf 或 .docx 文件")
             return None
-    else:
-        st.error("不支持的文件类型。请上传 .txt, .pdf 或 .docx 文件")
+    except Exception as e:
+        st.error(f"提取文件内容时出错：{str(e)}")
         return None
 
 def generate_dialogue_openai(content, char1_name, char2_name, dialogue_style, model="gemini-2.0-flash"):
@@ -299,9 +285,23 @@ st.title("🎙️ AI 播客生成器")
 # --- Sidebar for Inputs ---
 with st.sidebar:
     st.header("⚙️ 配置")
-    
     st.subheader("📜 内容输入")
     uploaded_file = st.file_uploader("上传内容（txt, pdf, docx）", type=["txt", "pdf", "docx"])
+    if uploaded_file:
+        st.write(f"上传文件：{uploaded_file.name}")
+        st.write(f"文件大小：{uploaded_file.size} 字节")
+        st.write(f"文件类型：{uploaded_file.type}")
+        try:
+            content = extract_text_from_file(uploaded_file)
+            if content:
+                st.session_state.extracted_content = content
+                st.subheader("📄 提取的内容")
+                st.text_area("提取的文本", content, height=200, disabled=True)
+            else:
+                st.error("无法从上传的文件中提取内容。")
+                st.stop()
+        except Exception as e:
+            st.error(f"处理上传文件时出错：{str(e)}")
     raw_text_input = st.text_area("或在此粘贴文本内容", height=150)
 
     st.divider()
