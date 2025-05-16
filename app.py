@@ -59,12 +59,39 @@ def extract_text_from_file(uploaded_file):
     if uploaded_file.name.endswith(".txt"):
         return uploaded_file.read().decode("utf-8")
     elif uploaded_file.name.endswith(".pdf"):
-        text = ""
-        pdf_reader = PyPDF2.PdfReader(uploaded_file)
-        for page_num in range(len(pdf_reader.pages)):
-            page = pdf_reader.pages[page_num]
-            text += page.extract_text()
-        return text
+        try:
+            text = ""
+            # 创建临时文件来保存上传的PDF
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
+                temp_file.write(uploaded_file.getbuffer())
+                temp_file_path = temp_file.name
+            
+            # 使用PyPDF2读取临时文件
+            pdf_reader = PyPDF2.PdfReader(temp_file_path)
+            for page_num in range(len(pdf_reader.pages)):
+                page = pdf_reader.pages[page_num]
+                try:
+                    page_text = page.extract_text()
+                    if page_text:  # 确保提取的文本不为空
+                        text += page_text + "\n"
+                except Exception as e:
+                    st.warning(f"无法提取PDF第{page_num+1}页文本: {e}")
+            
+            # 清理临时文件
+            os.unlink(temp_file_path)
+            
+            # 如果没有提取到任何文本，返回错误
+            if not text.strip():
+                st.error("无法从PDF中提取有效文本。文件可能是扫描件或受保护。")
+                return None
+                
+            # 清理文本，移除可能导致问题的字符
+            text = ''.join(char for char in text if ord(char) < 65536)
+            return text
+            
+        except Exception as e:
+            st.error(f"处理PDF文件时出错: {e}")
+            return None
     elif uploaded_file.name.endswith(".docx"):
         doc = docx.Document(uploaded_file)
         text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
