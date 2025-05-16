@@ -81,8 +81,8 @@ def sanitize_filename(filename):
 def extract_text_from_file(uploaded_file):
     """Extract text from uploaded file (.txt, .pdf, .docx)."""
     try:
-        # Create a temporary file with a sanitized name
-        original_filename = uploaded_file.name
+        # Sanitize the filename
+        original_filename = sanitize_filename(uploaded_file.name)
         file_extension = os.path.splitext(original_filename)[1].lower()
         
         # Check if extension is supported
