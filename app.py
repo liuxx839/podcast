@@ -329,6 +329,7 @@ with st.sidebar:
     
     st.subheader("📜 内容输入")
     uploaded_file = st.file_uploader("上传内容（txt, pdf, docx）", type=["txt", "pdf", "docx"])
+    st.caption("提示：如果上传包含中文或特殊字符的文件名时遇到错误，请尝试将文件名修改为仅包含英文字母和数字，然后重新上传。")
     raw_text_input = st.text_area("或在此粘贴文本内容", height=150)
 
     st.divider()
